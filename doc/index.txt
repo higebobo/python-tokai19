@@ -1,0 +1,401 @@
+﻿.. -*- mode: rst -*- coding: utf-8 -*-
+
+===================================
+Pythonでビジネスインテリジェンス(2)
+===================================
+
+by higebobo at Python東海第19回勉強会
+
+
+前回お話した内容
+================
+
+* Pythonでの統計処理ツールの紹介
+
+  - 平均、分散、標準偏差などをPure Python実装, rpy2, scipyで算出
+
+* 実例
+
+  - ウェブでの教材を元に以下を例に挙げた
+
+    + バーガーショップ２店舗の味をアンケート調査し、味の違いがあるかを調べた
+
+      - t検定
+      - F検定
+      
+    + アイスクリーム店の最寄の駅から近いほうが客は多いかを調べた
+
+      - 最小二乗法による線形回帰分析
+
+
+今回のお話
+==========
+
+* 私の勤務先は卸売市場のため競売を行っている
+* 物がよく売れる場合になにか要因があるかを調査
+
+  - 来客者数と売上金額との関係
+  - 天気と売上金額との関係(次回)
+
+
+来客者数と売上金額の相関
+========================
+
+* 客が増えれば売上は伸びるか？
+* 一見当たり前のように見えるがそうとは限らない
+
+  - 競売は駆け引きで値段が決まる
+  - つまり客が多くてもセリ値が安いと売上は伸びない
+
+* もし客数と金額に正の相関があるなら
+
+  - 売上予測モデルが構築できる(何に使うかしらんが)
+  - ネットオークションの実装で客数大幅増加→売上アップを見込める
+
+
+線形回帰分析
+============
+
+* 横軸xに来客者数、縦軸yに売上金額をプロットしてみる
+* 上記データから近似式を算出する
+
+
+生データを出力
+==============
+
+* matplotlibで散布図をプロット ::
+
+    >>> from matplotlib import pyplot as plt
+    >>> x = [127, 157, ...]
+    >>> y = [31830633, 69245428, ...]
+    >>> plt.plot(x, y, 'ko', label=u'実測値', markersize=2)
+    >>> plt.xlabel(u'来客者数', fontsize=12)
+    >>> plt.ylabel(u'売上金額, fontsize=12)
+    >>> plt.show()
+
+
+ぱっと見た感じ
+==============
+
+.. figure:: img/fig01.jpg
+   :width: 640
+   :height: 480
+   :align: center
+
+* まあ客が増えれば売上は伸びるように見える
+* 最小二乗法を用いて近似式(回帰直線)を算出してみる
+
+
+実際の算出
+==========
+
+* scipyの場合 ::
+
+    >>> from scipy import stats
+    >>> stats.linregress(x, y)
+
+* rpy2の場合 ::
+
+    >>> from rpy2 import robjects
+    >>> r = robjects.r
+    >>> r.lsfit(x, y)
+
+
+いくつかの情報が出力される
+==========================
+
+* scipyの場合 ::
+
+    >>> gradient, intercept, r_value, p_value, std_err = \
+    ... stats.linregress(x, y)
+
+* 回帰直線を引く場合は以下の二つが必要
+
+  - gradient: 直線の傾き
+  - intercept: 切片
+  - つまり以下の直線式になる ::
+
+      Y = intercept + gradient * X
+
+その他の情報
+============
+
+* 近似の当てはまり具合を見るにはr_value(相関係数)が大事
+
+  - 相関係数の絶対値が0.6以上あれば高い相関と言われる(1.0の場合完全一致)
+
+* 算出結果が意味の無い偶然の産物である確率はp_value(危険率)
+
+  - 0に近いほうがいい
+
+
+回帰直線を重ねてみる
+====================
+
+.. figure:: img/fig02.jpg
+   :width: 640
+   :height: 480
+   :align: center
+
+* 相関係数は0.66、危険率0.0と悪くは無い
+* が、若干ビミョーじゃねえか。
+
+
+そもそも直線か
+==============
+
+* 線形回帰を行ったがそれに無理があるのでは
+* なんとなく曲線ぽくねぇ？
+
+
+ならば簡単に済ます方法
+======================
+
+* 縦軸の値を自然対数でとってみる
+* Pythonではmathモジュールのlog関数
+
+
+で、どうだ
+==========
+
+.. figure:: img/fig03.jpg
+   :width: 640
+   :height: 480
+   :align: center
+
+* 見た目のあてはまり具合はかなりよい
+* 相関係数は0.88と高く、危険率も0.0と良好
+   
+
+もう少し面倒くさい方法
+======================
+
+* 元のデータが曲線ぽいのなら曲線で表現すればいいのでは
+* こういう場合線形でなくなるので非線形回帰という
+* そして曲線への近似は「曲線あてはめ」というが、
+* 名前がダサいというかそのまんまなので
+* オリジナルの英語のほうがわかりやすい
+
+
+カーブフィッティングの進め方
+============================
+
+* 実はあんまりわかっていないが
+* まずモデルを選択
+* パラメータを与えて計算
+
+
+てことは十人十色
+================
+
+* つまりどのモデルを選ぶかとか
+* どのパラメータを与えるとかで
+* 結果が変わってくる
+* 線形回帰みたいに絶対解があるわけではない
+
+
+どんなモデルがあるのか
+======================
+
+* 最小二乗法
+* 累乗モデル
+* 指数モデル
+* ロジスティック成長モデル
+* ゴンペルツ成長モデル
+* まああんまり細かいことは聞かんでくれ
+
+
+今回採用したモデル
+==================
+
+* 試行錯誤の結果、以下のあてはまり具合がよかった
+
+  - 最小二乗法によるn次式の算出
+  - 累乗
+
+
+既存データからn次近似パラメータの算出
+=====================================
+
+* 来客者数(説明変数x)から売上金額(目的変数y)の近似式を予測
+* 3次式を算出する具体例 ::
+
+    >>> import numpy as np
+    >>> x = np.array([...])
+    >>> y = np.array([...])
+    >>> z3 = np.polyfit(x, y, 3)
+
+
+n次パラメータを数式化
+=====================
+
+* 先ほど得たパラーメタから数式化 ::
+
+    >>> z3
+    [4.4737e+01 -1.2808e+04 1.7319e+06  -5.4398e+07]
+    >>> p3 = np.poly1d(z3)
+    >>> p3
+           3             2
+    44.74 x - 1.281e+04 x + 1.732e+06 x - 5.44e+07
+    
+* numpy最強
+
+polyfitを使わない方法
+=====================
+
+* あんまり意味ないが3次式の別解 ::
+
+    >>> degree = 4
+    >>> A = np.vander(x, degree)
+    >>> coeffs, residues, rank, sing_vals = \
+    ... np.linalg.lstsq(A, y)
+    >>> func2 = np.poly1d(coeffs)
+    >>> y_est = func2(xp)
+
+
+累乗モデルの場合(前準備)
+========================
+
+* モデル式の誤差算出関数定義 ::
+
+    >>> func = lambda v, x: v[0] * x**v[1] 
+
+* パラメータ設定 ::
+
+    >>> v0 = [4, 1.5]
+
+* 誤差の定義 ::
+
+    >>> e = lambda v, x, y: (func(v, x) - y)
+
+累乗モデルの場合(計算)
+======================
+
+* 結果 ::
+
+    >>> from scipy.optimize import leastsq
+    >>> v, success = \
+    ... leastsq(e, v0, args=(x, y), maxfev=1000)    
+
+
+プロットする場合
+================
+
+* 0から300まで100個のデータを作成 ::
+
+    >>> xp = np.linspace(0, 300, 100)
+
+* まずは実測値の出力 ::
+
+    >>> plt.plot(x, y, '.', label=u'実測値', markersize=2)
+
+* モデル式のプロット(3次式) ::
+    
+    >>> plt.plot(xp, p3(xp), '-', \
+    ... label='$y=%.1fx^3+%.1fx^2+%.2fx+%.1f$'%tuple(z3))
+    
+* モデル式のプロット(累乗) ::
+
+    >>> plt.plot(xp, func(v, xp), '-', label='$f(a^x)$')
+
+
+プロット結果
+============
+
+.. figure:: img/fig04.jpg
+   :width: 640
+   :height: 480
+   :align: center
+
+* 4次式が一番当てはまりがいいように見えるが
+
+
+駄目駄目な例
+============
+
+.. figure:: img/fig05.jpg
+   :width: 640
+   :height: 480
+   :align: center
+
+* データ数によっては4次式(3次式も)は非現実的な結果をもたらす
+* なのでこの例では累乗モデルを採用
+* ただし専門家がやればもっと近似したモデルの算出ができると思う
+
+Matplotlibについて
+==================
+
+* Rはグラフィックで定評あるがscipy+matplotlibは最強
+* 数式にTeXが使えるところも便利 ::
+
+    label='$f(a^x)$'
+
+* 日本語もOK ::
+
+    >>> prop = FontProperties(\
+    ... fname='/usr/share/fonts/ja/TrueType/ipag.ttf')
+    >>> plt.legend(loc='upper left', prop=prop)
+    >>> plt.xlabel(u'来客数', fontproperties=prop, \
+    ... fontsize=12)
+    >>> plt.ylabel(u'売上金額', fontproperties=prop, \
+    ... fontsize=12)
+
+
+どうでもいいがNumPyっていろいろできる
+=====================================
+
+* 例えば以下の連立方程式 ::
+
+    2x - 5y = 1
+    3x + y = 10
+
+* numpyを使うと ::
+
+    >>> a = np.array([[2, -5], [3, 1]])
+    >>> b = np.array([1, 10])
+    >>> np.linalg.solve(a, b)
+    array([3., 1.])
+
+おしまい
+========
+
+ご静聴ありがとうございました。
+
+.. raw:: html
+
+   <script type="text/javascript">
+   var head = document.getElementsByTagName('head')[0];
+   var configuration = {tranSitions:true,
+                        fadeDuration:500,
+                        incrDuration:250,
+                        autoMatic:false,
+                        playLoop:true,
+                        playDelay:10,
+                        audioSupport:true,
+                        audioVolume:100,
+                        audioError:true,
+                        audioDebug:false};
+   for (var name in configuration) {
+       var meta = document.createElement('meta');
+       meta.setAttribute('name', name);
+       meta.setAttribute('content', configuration[name]);
+       head.appendChild(meta);
+   }
+
+   var e=document.getElementsByTagName('ul');
+   for (var i = 0; i < e.length; ++i) {
+      e[i].className += ' incremental';
+      // e[i].className += ' scale fs90';
+   }
+
+   try {
+       var style = document.createElement('style');
+       style.innerHTML = ['* {font-family: "MS PGothic",sans-serif}'
+                         ,'pre,tt {font-family: "MS Gothic",monospace}'
+                         ,'.slide pre {color:black}'
+                         ,'.slide tt {color:black}'
+                         ,'.slide .incremental, .slide .incremental *, .slide .incremental *:after {visibility: hidden;}'
+                         ].join('\n');
+       head.appendChild(style);
+   } catch(e) {}
+   </script>
